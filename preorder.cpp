@@ -18,16 +18,17 @@ using namespace std;
 #define TAG 0
 #define MAX_NODE_NUMBER 50
 
+typedef struct t_edge {
+    char src;
+    char dest;
+    bool has_next;
+} t_edge;
+
 typedef struct t_adj_list {
     char src;
     char dest[MAX_NODE_NUMBER];
     int dest_count;
 } t_adj_list;
-
-typedef struct t_edge {
-    char src;
-    char dest;
-} t_edge;
 
 typedef struct t_tree {
     char vertices[MAX_NODE_NUMBER];
@@ -38,18 +39,20 @@ typedef struct t_tree {
     int edges_count;
 } t_tree;
 
-void add_edge(t_tree* tree, char src, char dest) {
+t_tree tree;
 
-    for (int i = 0; i < tree->vertices_count; i++) {
-        if (src == tree->vertices[i]) {
-            for (int j = 0; j < tree->adj_lists_count; j++) {
-                if (src == tree->adj_lists[j].src) {
-                    tree->adj_lists[j].dest[tree->adj_lists[j].dest_count] = dest;
-                    tree->adj_lists[j].dest_count++;
+void add_edge(char src, char dest) {
+
+    for (int i = 0; i < tree.vertices_count; i++) {
+        if (src == tree.vertices[i]) {
+            for (int j = 0; j < tree.adj_lists_count; j++) {
+                if (src == tree.adj_lists[j].src) {
+                    tree.adj_lists[j].dest[tree.adj_lists[j].dest_count] = dest;
+                    tree.adj_lists[j].dest_count++;
                 }
-                if (dest == tree->adj_lists[j].src) {
-                    tree->adj_lists[j].dest[tree->adj_lists[j].dest_count] = src;
-                    tree->adj_lists[j].dest_count++;
+                if (dest == tree.adj_lists[j].src) {
+                    tree.adj_lists[j].dest[tree.adj_lists[j].dest_count] = src;
+                    tree.adj_lists[j].dest_count++;
                 }
             }
         }
@@ -57,9 +60,22 @@ void add_edge(t_tree* tree, char src, char dest) {
 
 }
 
-t_tree init_tree(char* input) {
+void create_edges() {
+
+    for (int i = 0; i < tree.adj_lists_count; i++) {
+        for (int j = 0; j < tree.adj_lists[i].dest_count; j++) {
+            t_edge edge;
+            edge.has_next = (j+1 == tree.adj_lists[i].dest_count) ? false : true;
+            edge.src = tree.adj_lists[i].src;
+            edge.dest = tree.adj_lists[i].dest[j];
+            tree.edges[tree.edges_count] = edge;
+            tree.edges_count++;
+        }
+    }
+}
+
+void init_tree(char* input) {
     
-    t_tree tree;
     tree.vertices_count = 0;
     tree.adj_lists_count = 0;
     for (int i = 1; i <= strlen(input); i++) {
@@ -74,33 +90,67 @@ t_tree init_tree(char* input) {
     }
     for (int i = 1; i <= strlen(input); i++) {
         if (2*i <= strlen(input)) {
-            add_edge(&tree, input[i-1], input[2*i-1]);
-            t_edge edge1;
-            edge1.src = input[i-1];
-            edge1.dest = input[2*i-1];
-            tree.edges[tree.edges_count] = edge1;
-            tree.edges_count++;
-            t_edge edge2;
-            edge2.dest = input[i-1];
-            edge2.src = input[2*i-1];
-            tree.edges[tree.edges_count] = edge2;
-            tree.edges_count++;             
+            add_edge(input[i-1], input[2*i-1]);
         }
         if (2*i+1 <= strlen(input)) {
-            add_edge(&tree, input[i-1], input[2*i]);            
-            t_edge edge1;
-            edge1.src = input[i-1];
-            edge1.dest = input[2*i];
-            tree.edges[tree.edges_count] = edge1;
-            tree.edges_count++;
-            t_edge edge2;
-            edge2.dest = input[i-1];
-            edge2.src = input[2*i];
-            tree.edges[tree.edges_count] = edge2;
-            tree.edges_count++;
+            add_edge(input[i-1], input[2*i]);            
         }
     }
-    return tree;
+    create_edges();
+}
+
+t_edge find_reversed_edge(t_edge edge) {
+
+    for (int i = 0; i < tree.edges_count; i++) {
+        if (tree.edges[i].src == edge.dest && tree.edges[i].dest == edge.src) {
+            cout << "reversed edge for: " << edge.src << "->" << edge.dest << " is " << tree.edges[i].src << "->" << tree.edges[i].dest << endl;
+            return tree.edges[i];
+        }
+    }
+    t_edge clean;
+    return clean;
+}
+
+int get_edge_number(t_edge edge) {
+
+    for (int i = 0; i < tree.edges_count; i++) {
+        if (tree.edges[i].src == edge.src && tree.edges[i].dest == edge.dest) {
+            return i;
+        }
+    }
+    return 0; 
+}
+
+t_edge get_adj_list_first_element(char src) {
+
+    for (int i = 0; i < tree.adj_lists_count; i++) {
+        if (tree.adj_lists[i].src == src) {
+            t_edge edge;
+            edge.src = src;
+            edge.dest = tree.adj_lists[i].dest[0]; 
+            return edge;
+        }
+    }
+    t_edge clean;
+    return clean;
+}
+
+t_edge get_next(t_edge edge) {
+
+    for (int i = 0; i < tree.adj_lists_count; i++) {
+        if (tree.adj_lists[i].src == edge.src) {
+            for (int j = 0; j < tree.adj_lists[i].dest_count; j++) {
+                if (edge.dest == tree.adj_lists[i].dest[j]) {
+                    t_edge next_edge;
+                    next_edge.src = edge.src;
+                    next_edge.dest = tree.adj_lists[i].dest[j+1]; 
+                    return next_edge;
+                }
+            }
+        }
+    }
+    t_edge clean;
+    return clean;
 }
 
 int main(int argc, char* argv[]) {
@@ -113,170 +163,76 @@ int main(int argc, char* argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &processor_count); 
     MPI_Comm_rank(MPI_COMM_WORLD, &my_process_id);
 
+    int my_edge_number;
+
     char* input = argv[1];
 
     if (my_process_id == 0) {
         // cout << "AHOJ" << endl;
 
-        t_tree tree = init_tree(input);
+        init_tree(input);
 
         for (int i = 0; i < tree.edges_count; i++) {
             cout << tree.edges[i].src << "->" << tree.edges[i].dest << endl;
         }
+        cout << "LIST: " << tree.adj_lists[0].dest << endl;
+        cout << "LIST: " << tree.adj_lists[1].dest << endl;
+        cout << "LIST: " << tree.adj_lists[2].dest << endl;
+        cout << "LIST: " << tree.adj_lists[3].dest << endl;
+        cout << "LIST: " << tree.adj_lists[4].dest << endl;
+        cout << "LIST: " << tree.adj_lists[5].dest << endl;
+        cout << "LIST: " << tree.adj_lists[6].dest << endl;
 
-    //     char input[]= "numbers";
-        
-    //     int numbers[arraySize]; 
-    //     for (int i = 0; i < arraySize; i++) {
-    //         numbers[i] = INT_MAX;
-    //     }
-    //     int invar = 0; // invariant - urcuje cislo proc, ktoremu se bude posielat
-    //     fstream fin; 
-    //     fin.open(input, ios::in);  
+        int proc_number = 0;
 
-    //     while (fin.good()) {
-    //         for (int i = 0; i < arraySize; i++) {
-    //           numbers[i] = fin.get();
-    //           if (!fin.good()) { // ak nacitame EOF tak koniec
-    //             numbers[i] = INT_MAX;
-    //             break;
-    //           }
-    //         }
-    //         int it = 0;
-    //         while (it < arraySize) {
-    //             if (numbers[it] != INT_MAX) {
-    //                 MPI_Send(&numbers, arraySize, MPI_INT, invar, TAG, MPI_COMM_WORLD); // poslanie hodnot do procesoru s danym cislom invar
-    //                 invar++;
-    //                 break;
-    //             }
-    //             it++;
-    //         }
-        
-    //         for (int x = 0; x < (arraySize - 1); x++) {
-    //             if (numbers[x] != INT_MAX) {
-    //                 cout << numbers[x] << " ";
-    //             }
-    //         }
-    //         if (numbers[arraySize - 1] != INT_MAX) {
-    //             cout << numbers[arraySize - 1];
-    //             if (invar != processorCount) {
-    //                 cout << " ";
-    //             }
-    //         }
-    //         for (int i = 0; i < arraySize; i++) {
-    //             numbers[i] = INT_MAX;
-    //         }
-    //     }
-    //     cout << endl;
-    //     // este jedno poslanie, v specialnych pripadoch ak by sa nenaplnili vsetky procesory
-    //     while (invar < processorCount) {
-    //         MPI_Send(&numbers, arraySize, MPI_INT, invar, TAG, MPI_COMM_WORLD);
-    //         invar++;
-    //     }
+        for (int i = 0; i < tree.edges_count; i++) {
 
-    //     fin.close();                                
+            int edge_number = i;
+            MPI_Send(&edge_number, 1, MPI_INT, proc_number, TAG, MPI_COMM_WORLD);
+            proc_number++;
+        }
     }
 
-    // // vsetky procesory prijmu hodnotu z procesoru 0
-    // MPI_Recv(&myNumbers, arraySize, MPI_INT, 0, TAG, MPI_COMM_WORLD, &stat);
- 
-    // // zoradenie hodnot 
-    // sort(myNumbers, myNumbers + arraySize);
- 
-    // // pocet iteracii
-    // int iterations = ((processorCount % 2) == 0) ? (processorCount/2) : ((processorCount/2) + 1);
-    // int limit = processorCount-1;
+    MPI_Recv(&my_edge_number, 1, MPI_INT, 0, TAG, MPI_COMM_WORLD, &stat);
 
-    // for (int j = 1; j <= iterations; j++) { 
+    t_edge my_edge = tree.edges[my_edge_number];
+    cout << "Processor: " << my_process_id << " has edge number: " << my_edge_number << endl;
+    t_edge my_reversed_edge = find_reversed_edge(my_edge);
+    cout << "Processor: " << my_process_id << " has edge: " << my_edge.src << "->" << my_edge.dest << endl;
 
-    //     if ((!(myProcessId % 2) || myProcessId == 0) && (myProcessId < limit)) {
-    //         MPI_Send(&myNumbers, arraySize, MPI_INT, myProcessId+1, TAG, MPI_COMM_WORLD);        
-    //         MPI_Recv(&myNumbers, arraySize, MPI_INT, myProcessId+1, TAG, MPI_COMM_WORLD, &stat); 
-    //     }
-    //     else if ((myProcessId % 2) && (myProcessId <= limit)) {
-    //         MPI_Recv(&numbersFromNextProc, arraySize, MPI_INT, myProcessId-1, TAG, MPI_COMM_WORLD, &stat);
+    bool is_next = my_reversed_edge.has_next;
 
-    //         int sumNumbers[arraySize * 2];
-    //         for (int i = 0; i < arraySize; i++) {
-    //             sumNumbers[i] = myNumbers[i];
-    //         }
-    //         for (int i = arraySize; i < (arraySize * 2); i++) {
-    //             sumNumbers[i] = numbersFromNextProc[i-arraySize];
-    //         }
-    //         sort(sumNumbers, sumNumbers + (arraySize * 2));
-    //         int lowerPart[arraySize];
-    //         int higherPart[arraySize];
-    //         for (int i = 0; i < arraySize; i++) {
-    //             lowerPart[i] = sumNumbers[i];
-    //         }
-    //         for (int i = arraySize; i < (arraySize * 2); i++) {
-    //             higherPart[i-arraySize] = sumNumbers[i];
-    //         }
+    int my_e_tour_number = 0;
+    if (!is_next) {
+        t_edge my_e_tour = get_adj_list_first_element(my_reversed_edge.src);
+        my_e_tour_number = get_edge_number(my_e_tour);
+    }
+    else {
+        t_edge my_e_tour = get_next(my_reversed_edge);
+        my_e_tour_number = get_edge_number(my_e_tour);
+    }
 
-    //         for (int i = 0; i < arraySize; i++) {
-    //             myNumbers[i] = higherPart[i];
-    //         }
+    t_edge e_tour[MAX_NODE_NUMBER];
 
-    //         MPI_Send(&lowerPart, arraySize, MPI_INT, myProcessId-1, TAG, MPI_COMM_WORLD); 
-    //     }
+    for (int i = 1; i < processor_count; i++) {
+        if (my_process_id == i) {
+            MPI_Send(&my_e_tour_number, 1, MPI_INT, 0, TAG,  MPI_COMM_WORLD);
+        }
+        if (my_process_id == 0) {
+            int received_e_tour_number;
+            MPI_Recv(&received_e_tour_number, 1, MPI_INT, i, TAG, MPI_COMM_WORLD, &stat);
+            e_tour[i] = tree.edges[received_e_tour_number];
+        }
+    }
 
-    //     if ((myProcessId % 2) && (myProcessId < limit)) {
-    //         MPI_Send(&myNumbers, arraySize, MPI_INT, myProcessId+1, TAG, MPI_COMM_WORLD); 
-    //         MPI_Recv(&myNumbers, arraySize, MPI_INT, myProcessId+1, TAG, MPI_COMM_WORLD, &stat); 
-    //     }
-    //     else if (myProcessId <= limit && myProcessId != 0 && !(myProcessId % 2)) {
-    //         MPI_Recv(&numbersFromNextProc, arraySize, MPI_INT, myProcessId-1, TAG, MPI_COMM_WORLD, &stat);
+    if (my_process_id == 0) {
+        e_tour[0] = tree.edges[my_e_tour_number];
 
-    //         int sumNumbers[arraySize * 2];
-    //         for (int i = 0; i < arraySize; i++) {
-    //             sumNumbers[i] = myNumbers[i];
-    //         }
-    //         for (int i = arraySize; i < (arraySize * 2); i++) {
-    //             sumNumbers[i] = numbersFromNextProc[i-arraySize];
-    //         }
-    //         sort(sumNumbers, sumNumbers + (arraySize * 2));
-    //         int lowerPart[arraySize];
-    //         int higherPart[arraySize];
-    //         for (int i = 0; i < arraySize; i++) {
-    //             lowerPart[i] = sumNumbers[i];
-    //         }
-    //         for (int i = arraySize; i < (arraySize * 2); i++) {
-    //             higherPart[i-arraySize] = sumNumbers[i];
-    //         }
-    //         for (int i = 0; i < arraySize; i++) {
-    //             myNumbers[i] = higherPart[i];
-    //         }
-    //         MPI_Send(&lowerPart, arraySize, MPI_INT, myProcessId-1, TAG, MPI_COMM_WORLD);
-    //     }
-        
-    // }
-
-    // int* result = new int [processorCount * arraySize];
-    // for (int i = 1; i < processorCount; i++) {
-    //     if (myProcessId == i) {
-    //         MPI_Send(&myNumbers, arraySize, MPI_INT, 0, TAG,  MPI_COMM_WORLD);
-    //     }
-    //     if (myProcessId == 0) {
-    //         MPI_Recv(&numbersFromNextProc, arraySize, MPI_INT, i, TAG, MPI_COMM_WORLD, &stat);
-    //         for (int x = 0; x < arraySize; x++) {
-    //             result[(i*arraySize) + x] = numbersFromNextProc[x];
-    //         }
-    //     }
-    // }
-
-    // if (myProcessId == 0) {
-    //     for (int x = 0; x < arraySize; x++) {
-    //        result[x] = myNumbers[x];
-    //     }
-    //     for (int x = 0; x < ((arraySize * processorCount) - 1); x++) {
-    //         if (result[x] != INT_MAX) {
-    //             cout << result[x] << endl;                
-    //         }
-    //     }
-    //     if (result[(arraySize * processorCount) - 1] != INT_MAX) {
-    //         cout << result[(arraySize * processorCount) - 1] << endl;
-    //     }
-    // }
+        cout << "*******************" << endl;
+        for (int i = 0; i < processor_count; i++) {
+            cout << e_tour[i].src << "->" << e_tour[i].dest << endl;
+        }
+    }
 
     MPI_Finalize(); 
     return 0;
