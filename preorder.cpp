@@ -101,16 +101,13 @@ void init_tree(char* input) {
 
 t_edge find_reversed_edge(t_edge edge) {
 
-    // for (int i = 0; i < tree.edges_count; i++) {
-        // if (tree.edges[i].src == edge.dest && tree.edges[i].dest == edge.src) {
-            // return tree.edges[i];
-        // }
-    // }
-    t_edge new_edge;
-    new_edge.src = edge.dest;
-    new_edge.dest = edge.src;
-    cout << "reversed edge for: " << edge.src << "->" << edge.dest << " is " << new_edge.src << "->" << new_edge.dest << endl; 
-    return new_edge;
+    for (int i = 0; i < tree.edges_count; i++) {
+        if (tree.edges[i].src == edge.dest && tree.edges[i].dest == edge.src) {
+            return tree.edges[i];
+        }
+    }
+    t_edge clean;
+    return clean;
 }
 
 int get_edge_number(t_edge edge) {
@@ -175,14 +172,13 @@ int main(int argc, char* argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &processor_count); 
     MPI_Comm_rank(MPI_COMM_WORLD, &my_process_id);
 
-    char my_edge_string[2];
-
+    int my_edge_number = 0;
     char* input = argv[1];
+
+    init_tree(input);
 
     if (my_process_id == 0) {
         // cout << "AHOJ" << endl;
-
-        init_tree(input);
 
         for (int i = 0; i < tree.edges_count; i++) {
             cout << tree.edges[i].src << "->" << tree.edges[i].dest << endl;
@@ -198,48 +194,43 @@ int main(int argc, char* argv[]) {
         int proc_number = 0;
 
         for (int i = 0; i < tree.edges_count; i++) {
-
-            // int edge_number = i;
-            char edge[2]= {tree.edges[i].src, tree.edges[i].dest};
-            // cout << "Sending edge: " << edge[0] << edge[1] << " to proc " << proc_number << endl;
-            MPI_Send(&edge, 2, MPI_INT, proc_number, TAG, MPI_COMM_WORLD);
+            int edge_number = i;
+            MPI_Send(&edge_number, 1, MPI_INT, proc_number, TAG, MPI_COMM_WORLD);
             proc_number++;
         }
     }
 
-    MPI_Recv(&my_edge_string, 2, MPI_INT, 0, TAG, MPI_COMM_WORLD, &stat);
+    MPI_Recv(&my_edge_number, 1, MPI_INT, 0, TAG, MPI_COMM_WORLD, &stat);
 
-    t_edge my_edge;
-    my_edge.src = my_edge_string[0];
-    my_edge.dest = my_edge_string[1];
+    t_edge my_edge = tree.edges[my_edge_number];
 
-    cout << "Processor: " << my_process_id << " has edge: " << my_edge.src << "->" << my_edge.dest << endl;
+    // cout << "Processor: " << my_process_id << " has edge: " << my_edge.src << "->" << my_edge.dest << endl;
     t_edge my_reversed_edge = find_reversed_edge(my_edge);
 
-    bool is_next;
-    for (int i = 1; i < processor_count; i++) {
-        if (my_process_id == i) {
-            char reversed[2] = {my_reversed_edge.src, my_reversed_edge.dest};
-            MPI_Send(&reversed, 2, MPI_INT, 0, TAG,  MPI_COMM_WORLD);
-            int has_next;
-            MPI_Recv(&has_next, 1, MPI_INT, 0, TAG, MPI_COMM_WORLD, &stat);
-            is_next = (has_next == 1) ? true : false;
-        }
-        if (my_process_id == 0) {
-            char reversed[2];
-            MPI_Recv(&reversed, 2, MPI_INT, i, TAG, MPI_COMM_WORLD, &stat);
-            int has_next = edge_has_next(reversed);
-            MPI_Send(&has_next, 1, MPI_INT, i, TAG,  MPI_COMM_WORLD);            
-        }
-    }
+    bool is_next = my_reversed_edge.has_next;
+    // for (int i = 1; i < processor_count; i++) {
+    //     if (my_process_id == i) {
+    //         char reversed[2] = {my_reversed_edge.src, my_reversed_edge.dest};
+    //         MPI_Send(&reversed, 2, MPI_INT, 0, TAG,  MPI_COMM_WORLD);
+    //         int has_next;
+    //         MPI_Recv(&has_next, 1, MPI_INT, 0, TAG, MPI_COMM_WORLD, &stat);
+    //         is_next = (has_next == 1) ? true : false;
+    //     }
+    //     if (my_process_id == 0) {
+    //         char reversed[2];
+    //         MPI_Recv(&reversed, 2, MPI_INT, i, TAG, MPI_COMM_WORLD, &stat);
+    //         int has_next = edge_has_next(reversed);
+    //         MPI_Send(&has_next, 1, MPI_INT, i, TAG,  MPI_COMM_WORLD);            
+    //     }
+    // }
 
-    if (my_process_id == 0) {
-        for (int i = 0; i < tree.edges_count; i++) {
-            if (tree.edges[i].src == my_reversed_edge.src && tree.edges[i].dest == my_reversed_edge.dest ) {
-                is_next = tree.edges[i].has_next;
-            }
-        }
-    }
+    // if (my_process_id == 0) {
+    //     for (int i = 0; i < tree.edges_count; i++) {
+    //         if (tree.edges[i].src == my_reversed_edge.src && tree.edges[i].dest == my_reversed_edge.dest ) {
+    //             is_next = tree.edges[i].has_next;
+    //         }
+    //     }
+    // }
 
     cout << "Processor: " << my_process_id << " has edge: " << my_edge.src << "->" << my_edge.dest << " with is_next: " << is_next <<  endl;
 
