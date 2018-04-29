@@ -12,6 +12,7 @@
 #include <string>
 #include <climits>
 #include <list>
+#include <math.h>
 
 using namespace std;
 
@@ -22,11 +23,13 @@ typedef struct t_edge {
     char src;
     char dest;
     bool has_next;
+    int weight;
 } t_edge;
 
 typedef struct t_adj_list {
     char src;
     char dest[MAX_NODE_NUMBER];
+    int weights[MAX_NODE_NUMBER];
     int dest_count;
 } t_adj_list;
 
@@ -48,10 +51,12 @@ void add_edge(char src, char dest) {
             for (int j = 0; j < tree.adj_lists_count; j++) {
                 if (src == tree.adj_lists[j].src) {
                     tree.adj_lists[j].dest[tree.adj_lists[j].dest_count] = dest;
+                    tree.adj_lists[j].weights[tree.adj_lists[j].dest_count] = 1;
                     tree.adj_lists[j].dest_count++;
                 }
                 if (dest == tree.adj_lists[j].src) {
                     tree.adj_lists[j].dest[tree.adj_lists[j].dest_count] = src;
+                    tree.adj_lists[j].weights[tree.adj_lists[j].dest_count] = 0;
                     tree.adj_lists[j].dest_count++;
                 }
             }
@@ -68,6 +73,7 @@ void create_edges() {
             edge.has_next = (j+1 == tree.adj_lists[i].dest_count) ? false : true;
             edge.src = tree.adj_lists[i].src;
             edge.dest = tree.adj_lists[i].dest[j];
+            edge.weight = tree.adj_lists[i].weights[j];
             tree.edges[tree.edges_count] = edge;
             tree.edges_count++;
         }
@@ -178,18 +184,6 @@ int main(int argc, char* argv[]) {
     init_tree(input);
 
     if (my_process_id == 0) {
-        // cout << "AHOJ" << endl;
-
-        for (int i = 0; i < tree.edges_count; i++) {
-            cout << tree.edges[i].src << "->" << tree.edges[i].dest << endl;
-        }
-        cout << "LIST: " << tree.adj_lists[0].dest << endl;
-        cout << "LIST: " << tree.adj_lists[1].dest << endl;
-        cout << "LIST: " << tree.adj_lists[2].dest << endl;
-        cout << "LIST: " << tree.adj_lists[3].dest << endl;
-        cout << "LIST: " << tree.adj_lists[4].dest << endl;
-        cout << "LIST: " << tree.adj_lists[5].dest << endl;
-        cout << "LIST: " << tree.adj_lists[6].dest << endl;
 
         int proc_number = 0;
 
@@ -204,36 +198,9 @@ int main(int argc, char* argv[]) {
 
     t_edge my_edge = tree.edges[my_edge_number];
 
-    // cout << "Processor: " << my_process_id << " has edge: " << my_edge.src << "->" << my_edge.dest << endl;
     t_edge my_reversed_edge = find_reversed_edge(my_edge);
 
     bool is_next = my_reversed_edge.has_next;
-    // for (int i = 1; i < processor_count; i++) {
-    //     if (my_process_id == i) {
-    //         char reversed[2] = {my_reversed_edge.src, my_reversed_edge.dest};
-    //         MPI_Send(&reversed, 2, MPI_INT, 0, TAG,  MPI_COMM_WORLD);
-    //         int has_next;
-    //         MPI_Recv(&has_next, 1, MPI_INT, 0, TAG, MPI_COMM_WORLD, &stat);
-    //         is_next = (has_next == 1) ? true : false;
-    //     }
-    //     if (my_process_id == 0) {
-    //         char reversed[2];
-    //         MPI_Recv(&reversed, 2, MPI_INT, i, TAG, MPI_COMM_WORLD, &stat);
-    //         int has_next = edge_has_next(reversed);
-    //         MPI_Send(&has_next, 1, MPI_INT, i, TAG,  MPI_COMM_WORLD);            
-    //     }
-    // }
-
-    // if (my_process_id == 0) {
-    //     for (int i = 0; i < tree.edges_count; i++) {
-    //         if (tree.edges[i].src == my_reversed_edge.src && tree.edges[i].dest == my_reversed_edge.dest ) {
-    //             is_next = tree.edges[i].has_next;
-    //         }
-    //     }
-    // }
-
-    cout << "Processor: " << my_process_id << " has edge: " << my_edge.src << "->" << my_edge.dest << " with is_next: " << is_next <<  endl;
-
 
     int my_e_tour_number = 0;
     if (!is_next) {
@@ -245,7 +212,7 @@ int main(int argc, char* argv[]) {
         my_e_tour_number = get_edge_number(my_e_tour);
     }
 
-    t_edge e_tour[MAX_NODE_NUMBER];
+    int e_tour[processor_count];
 
     for (int i = 1; i < processor_count; i++) {
         if (my_process_id == i) {
@@ -254,17 +221,136 @@ int main(int argc, char* argv[]) {
         if (my_process_id == 0) {
             int received_e_tour_number;
             MPI_Recv(&received_e_tour_number, 1, MPI_INT, i, TAG, MPI_COMM_WORLD, &stat);
-            e_tour[i] = tree.edges[received_e_tour_number];
+            e_tour[i] = received_e_tour_number;
         }
     }
 
     if (my_process_id == 0) {
-        e_tour[0] = tree.edges[my_e_tour_number];
+        e_tour[0] = my_e_tour_number;
+    }
 
-        cout << "*******************" << endl;
-        for (int i = 0; i < processor_count; i++) {
-            cout << e_tour[i].src << "->" << e_tour[i].dest << endl;
+    for (int i = 1; i < processor_count; i++) {
+        if (my_process_id == i) {
+            MPI_Recv(&e_tour, processor_count, MPI_INT, 0, TAG, MPI_COMM_WORLD, &stat);
+
         }
+        if (my_process_id == 0) {
+            MPI_Send(&e_tour, processor_count, MPI_INT, i, TAG,  MPI_COMM_WORLD);            
+        }
+    }
+
+    int rank[processor_count];
+
+    for (int i = 0; i < processor_count; i++) {
+        if (e_tour[i] == 0) {
+            rank[i] = 0;
+        }
+        else {
+            rank[i] = 1;
+        }
+    }
+
+    int temp_e_tour[processor_count];
+    for (int i = 0; i < processor_count; i++) {
+        temp_e_tour[i] = e_tour[i];
+    }
+
+    for (int i = 0; i < processor_count; i++) {
+        
+        while (temp_e_tour[i] != 0) {
+            rank[i] += rank[temp_e_tour[i]];
+            temp_e_tour[i] = temp_e_tour[temp_e_tour[i]]; 
+        }
+
+    }
+    for (int i = 0; i < processor_count; i++) {
+        rank[i] = processor_count - rank[i];
+    }
+
+    for (int i = 0; i < processor_count; i++) {
+        temp_e_tour[i] = e_tour[i];
+    }
+
+    int weights[processor_count];
+    for (int i = 1; i < processor_count; i++) {
+        if (my_process_id == i) {
+            int my_weight = tree.edges[i].weight;
+            MPI_Send(&my_weight, 1, MPI_INT, 0, TAG,  MPI_COMM_WORLD);            
+        }
+        if (my_process_id == 0) {
+            int weight;
+            MPI_Recv(&weight, 1, MPI_INT, i, TAG, MPI_COMM_WORLD, &stat);
+            weights[i] = weight;
+        }
+    }
+    int suffix_sum[processor_count];
+
+    if (my_process_id == 0) {
+        weights[0] = tree.edges[0].weight;
+
+        for (int i = 0; i < processor_count; i++) {
+            suffix_sum[i] = weights[i];
+        }
+
+        for (int i = 0; i < processor_count; i++) {
+        
+            while (temp_e_tour[i] != 0) {
+                suffix_sum[i] += suffix_sum[temp_e_tour[i]];
+                temp_e_tour[i] = temp_e_tour[temp_e_tour[i]]; 
+            }
+        }
+    }
+
+    int my_new_weight;
+    for (int i = 1; i < processor_count; i++) {
+        if (my_process_id == i) {
+            MPI_Recv(&my_new_weight, 1, MPI_INT, 0, TAG, MPI_COMM_WORLD, &stat);
+
+        }
+        if (my_process_id == 0) {
+            MPI_Send(&suffix_sum[i], 1, MPI_INT, i, TAG,  MPI_COMM_WORLD);            
+        }
+    }
+    if (my_process_id == 0) {
+        my_new_weight = suffix_sum[0];
+    }
+
+    // cout << "Processor: " << my_process_id << " has new weight " << my_new_weight << endl;
+    // cout << "Processor: " << my_process_id << " has edge: " << tree.edges[my_process_id].weight << endl;
+
+    int preorder = 0;
+    if (tree.edges[my_process_id].weight == 1) {
+        preorder = strlen(input) - my_new_weight;
+        // cout << "Processor: " << my_process_id << ": preorder: " << preorder << "             with edge:" << tree.edges[my_process_id].src << "->" << tree.edges[my_process_id].dest << endl; 
+    }
+
+    int preorders[processor_count];
+    if (my_process_id == 0) {
+        preorders[0] = preorder;
+    }
+
+    for (int i = 1; i < processor_count; i++) {
+        if (my_process_id == i) {
+            MPI_Send(&preorder, 1, MPI_INT, 0, TAG,  MPI_COMM_WORLD);            
+        }
+        if (my_process_id == 0) {
+            int order;
+            MPI_Recv(&order, 1, MPI_INT, i, TAG, MPI_COMM_WORLD, &stat);
+            preorders[i] = order;
+        }
+    }
+
+    if (my_process_id == 0) {
+        char output[strlen(input)];
+        output[0] = input[0];
+        for (int i = 0; i < processor_count; i++) {
+            if (preorders[i] != 0) {
+                int pos = preorders[i];
+                output[pos] = tree.edges[i].dest;
+            }
+        }
+
+        cout << output << endl;
     }
 
     MPI_Finalize(); 
