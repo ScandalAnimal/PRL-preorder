@@ -112,8 +112,8 @@ t_edge find_reversed_edge(t_edge edge) {
             return tree.edges[i];
         }
     }
-    t_edge clean;
-    return clean;
+    t_edge empty;
+    return empty;
 }
 
 int get_edge_number(t_edge edge) {
@@ -136,8 +136,8 @@ t_edge get_adj_list_first_element(char src) {
             return edge;
         }
     }
-    t_edge clean;
-    return clean;
+    t_edge empty;
+    return empty;
 }
 
 int edge_has_next(char edge[2]) {
@@ -164,8 +164,8 @@ t_edge get_next(t_edge edge) {
             }
         }
     }
-    t_edge clean;
-    return clean;
+    t_edge empty;
+    return empty;
 }
 
 int main(int argc, char* argv[]) {
@@ -197,9 +197,7 @@ int main(int argc, char* argv[]) {
     MPI_Recv(&my_edge_number, 1, MPI_INT, 0, TAG, MPI_COMM_WORLD, &stat);
 
     t_edge my_edge = tree.edges[my_edge_number];
-
     t_edge my_reversed_edge = find_reversed_edge(my_edge);
-
     bool is_next = my_reversed_edge.has_next;
 
     int my_e_tour_number = 0;
@@ -321,7 +319,6 @@ int main(int argc, char* argv[]) {
     int preorder = 0;
     if (tree.edges[my_process_id].weight == 1) {
         preorder = strlen(input) - my_new_weight;
-        // cout << "Processor: " << my_process_id << ": preorder: " << preorder << "             with edge:" << tree.edges[my_process_id].src << "->" << tree.edges[my_process_id].dest << endl; 
     }
 
     int preorders[processor_count];
@@ -341,6 +338,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (my_process_id == 0) {
+
         char output[strlen(input)];
         output[0] = input[0];
         for (int i = 0; i < processor_count; i++) {
@@ -349,8 +347,10 @@ int main(int argc, char* argv[]) {
                 output[pos] = tree.edges[i].dest;
             }
         }
-
-        cout << output << endl;
+		for (int i = 0; i < strlen(input); i++) {
+        	cout << output[i];
+        }
+        cout << endl;
     }
 
     MPI_Finalize(); 
